@@ -20,16 +20,12 @@ export interface FormItemProps<Values = any> extends AntdFormItemProps<Values> {
 }
 
 function FormItem<Values = any>(props: FormItemProps<Values>) {
-  const { format, names, ...rest } = props;
+  const { names, ...rest } = props;
   const { prefixName } = useContext(FieldContext);
-  if (!format) {
-    return <Form.Item {...rest} />;
-  }
-
   const _names = names?.map((name) => {
     return prefixName ? concat(prefixName, name) : name;
   });
-
+  const [start, end] = _names;
   return (
     <>
       <Form.Item
@@ -42,49 +38,34 @@ function FormItem<Values = any>(props: FormItemProps<Values>) {
         }}
       >
         {(form: FormInstance<Values>) => (
-          <Form.Item {...format?.format?.(_names || [], form)} {...rest} />
+          <Form.Item
+            getValueProps={(value) => {
+              return {
+                value: value && [
+                  moment(Number(value)),
+                  moment(Number(form.getFieldValue(_names[1])))
+                ]
+              };
+            }}
+            getValueFromEvent={(values) => {
+              const [start, end] = values || [];
+              form.setFields([
+                {
+                  name: _names[1],
+                  value: end && end.valueOf()
+                }
+              ]);
+              return start && start.valueOf();
+            }}
+            name={start}
+            {...rest}
+          />
         )}
       </Form.Item>
-      {names?.map((name) => (
-        <Form.Item key={concat(name).join("_")} name={name} noStyle />
-      ))}
+      <Form.Item name={end} noStyle />
     </>
   );
 }
-
-export interface FormatProps<T> {
-  getRangeMomentToTimestamp: (name: NamePath[], second?: boolean) => T;
-}
-
-export const format: FormatProps<FormItemProps["format"]> = {
-  // [moment,moment] => { start_at:1619366400000,end_at:1622044799999 }
-  getRangeMomentToTimestamp: (name, second) => ({
-    name,
-    format: (names, form) => {
-      debugger;
-      return {
-        getValueProps: (value) => {
-          return {
-            value: value && [
-              moment(Number(value)),
-              moment(Number(form.getFieldValue(names[1])))
-            ]
-          };
-        },
-        getValueFromEvent: (values) => {
-          const [start, end] = values || [];
-          form.setFields([
-            {
-              name: names[1],
-              value: end && end.valueOf()
-            }
-          ]);
-          return start && start.valueOf();
-        }
-      };
-    }
-  })
-};
 
 const Demo = () => {
   return (
@@ -99,17 +80,12 @@ const Demo = () => {
         start: "1620611200000"
       }}
     >
-      <FormItem
-        name="start"
-        names={["start", "end"]}
-        label="range"
-        format={format.getRangeMomentToTimestamp(["end"])}
-      >
+      <FormItem names={["start", "end"]} label="range">
         <DatePicker.RangePicker />
       </FormItem>
-      <FormItem>
+      <Form.Item>
         <Button htmlType="submit">提交</Button>
-      </FormItem>
+      </Form.Item>
     </Form>
   );
 };
